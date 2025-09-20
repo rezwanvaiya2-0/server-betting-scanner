@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to update the entire scanner from GitHub with conflict resolution
+# Script to update the entire scanner from GitHub with complete fix
 
 SCANNER_DIR="/opt/betting_scanner"
 LOG_FILE="/var/log/betting_scanner_update.log"
@@ -23,7 +23,7 @@ git stash >> "$LOG_FILE" 2>&1
 echo "📥 Fetching latest updates from GitHub..."
 git fetch --all >> "$LOG_FILE" 2>&1
 
-# Reset hard to the latest version from GitHub (THIS FIXES THE CONFLICTS)
+# Reset hard to the latest version from GitHub
 echo "🔄 Resetting to latest version..."
 git reset --hard origin/main >> "$LOG_FILE" 2>&1
 
@@ -31,22 +31,32 @@ git reset --hard origin/main >> "$LOG_FILE" 2>&1
 echo "✅ Applying updates..."
 if git pull origin main >> "$LOG_FILE" 2>&1; then
     echo "🎉 Successfully updated the betting site scanner!"
-    echo "📋 Latest version and keywords are now active."
     
-    # Ensure all scripts are executable
-    echo "🔧 Setting executable permissions..."
+    # COMPLETE PERMISSION FIXING
+    echo "🔧 Setting executable permissions for all scripts..."
     chmod +x /opt/betting_scanner/bin/*.sh >> "$LOG_FILE" 2>&1
     chmod +x /opt/betting_scanner/src/betting_scanner.py >> "$LOG_FILE" 2>&1
     
-    # Check if symlinks exist, create if missing
-    if [ ! -L "/usr/local/bin/update-betting" ]; then
-        ln -sf /opt/betting_scanner/bin/update.betting.sh /usr/local/bin/update-betting
-    fi
-    if [ ! -L "/usr/local/bin/sites" ]; then
-        ln -sf /opt/betting_scanner/bin/sites.betting.sh /usr/local/bin/sites
-    fi
+    echo "🔗 Repairing symlinks in /usr/local/bin/..."
+    # Remove existing symlinks
+    rm -f /usr/local/bin/sites /usr/local/bin/update-betting /usr/local/bin/fix-betting
     
+    # Create new symlinks
+    ln -sf /opt/betting_scanner/bin/sites.betting.sh /usr/local/bin/sites
+    ln -sf /opt/betting_scanner/bin/update.betting.sh /usr/local/bin/update-betting
+    ln -sf /opt/betting_scanner/bin/fix_scanner.sh /usr/local/bin/fix-betting
+    
+    # Ensure symlinks have execute permission
+    chmod +x /usr/local/bin/sites /usr/local/bin/update-betting /usr/local/bin/fix-betting
+    
+    echo "📋 Latest version and keywords are now active."
     echo "✨ Update completed successfully!"
+    echo ""
+    echo "💡 Commands available:"
+    echo "   sites           - Scan for betting sites"
+    echo "   update-betting  - Update scanner from GitHub"
+    echo "   fix-betting     - Fix any issues"
+    
 else
     echo "❌ ERROR: Failed to update from GitHub. Check the log: $LOG_FILE"
     exit 1
