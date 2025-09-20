@@ -38,7 +38,7 @@ yum install -y git python3
 pip3 install requests beautifulsoup4
 ```
 
-#### For Ubuntu/Debian:
+#### For Ubuntu/Debian: ( Not Tested Yet! )
 ```bash
 apt-get update
 apt-get install -y git python3 python3-pip
@@ -70,6 +70,14 @@ bash <(curl -s https://raw.githubusercontent.com/rezwanvaiya2-0/server-betting-s
 
 ### 📁 Installation Directory
 The script is installed in: `/opt/betting_scanner/`
+
+### 📊 **WHAT EACH COMMAND DOES:**
+
+| Command | Purpose | Frequency |
+|---------|---------|-----------|
+| **`sites`** | Scan server for gambling sites | Daily/Weekly |
+| **`update-betting`** | Get latest keywords & code | If added new keywords |
+| **`fix-betting`** | Repair permissions/issues | Only if something breaks |
 
 ### 📊 Log Files Location
 The scanner creates logs in: `/var/log/betting_scanner.log`  
