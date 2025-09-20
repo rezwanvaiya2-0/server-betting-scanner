@@ -20,6 +20,19 @@ KEYWORDS_FILE = Path('/opt/betting_scanner/src/keywords.txt')
 LOG_FILE = '/var/log/betting_scanner.log'
 # ===================================
 
+# Color codes for terminal output
+class Colors:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
 def setup_logging():
     """Sets up logging to both a file and the console."""
     logging.basicConfig(
@@ -163,19 +176,19 @@ def check_domain(domain_info, keywords):
             
         # Check for exact match
         if re.search(rf'\b{re.escape(kw_lower)}\b', domain_lower):
-            matches_found.append(f"DOMAIN_NAME_EXACT: '{kw}'")
+            matches_found.append(f"{Colors.RED}DOMAIN{Colors.END}: '{Colors.BOLD}{kw}{Colors.END}'")
             continue
             
         # Check for partial match (keyword appears anywhere in domain)
         if kw_lower in domain_lower:
-            matches_found.append(f"DOMAIN_NAME_PARTIAL: '{kw}'")
+            matches_found.append(f"{Colors.RED}DOMAIN{Colors.END}: '{Colors.BOLD}{kw}{Colors.END}'")
             continue
             
         # Advanced: Check for similar patterns (3+ character sequences)
         for i in range(len(kw_lower) - 2):
             segment = kw_lower[i:i+3]
             if segment in domain_lower:
-                matches_found.append(f"DOMAIN_NAME_SIMILAR: '{segment}' from '{kw}'")
+                matches_found.append(f"{Colors.RED}DOMAIN{Colors.END}: '{Colors.BOLD}{kw}{Colors.END}'")
                 break
 
     # Check 2: Check the WEBSITE CONTENT
@@ -203,16 +216,16 @@ def check_domain(domain_info, keywords):
                 
             # Exact match in title
             if re.search(rf'\b{re.escape(kw_lower)}\b', title_text):
-                matches_found.append(f"PAGE_TITLE: '{kw}'")
+                matches_found.append(f"{Colors.YELLOW}TITLE{Colors.END}: '{Colors.BOLD}{kw}{Colors.END}'")
                 
             # Partial match in title
             elif kw_lower in title_text:
-                matches_found.append(f"PAGE_TITLE_PARTIAL: '{kw}'")
+                matches_found.append(f"{Colors.YELLOW}TITLE{Colors.END}: '{Colors.BOLD}{kw}{Colors.END}'")
             
             # Count occurrences in body text
             count = page_text.count(kw_lower)
             if count > 2:
-                matches_found.append(f"BODY_TEXT ({count}x): '{kw}'")
+                matches_found.append(f"{Colors.BLUE}CONTENT{Colors.END}: '{Colors.BOLD}{kw}{Colors.END}'")
 
     except requests.exceptions.RequestException as e:
         logger.debug(f"Could not fetch {url}: {e}")
@@ -220,8 +233,33 @@ def check_domain(domain_info, keywords):
 
     # If we found any matches, return the results
     if matches_found:
-        result_line = f"MATCH - User: {user} | Domain: {domain} | Path: {doc_root}"
-        result_line += f" | Reasons: {', '.join(matches_found)}"
+        # Remove duplicates and limit to 3 unique keywords
+        unique_matches = []
+        seen_keywords = set()
+        
+        for match in matches_found:
+            # Extract the keyword from the match string
+            kw_match = re.search(r"'([^']+)'", match)
+            if kw_match:
+                keyword = kw_match.group(1)
+                if keyword not in seen_keywords:
+                    seen_keywords.add(keyword)
+                    unique_matches.append(match)
+                    if len(unique_matches) >= 3:
+                        break
+        
+        # Build the result line
+        result_line = f"{Colors.GREEN}🚨 MATCH FOUND:{Colors.END}\n"
+        result_line += f"   {Colors.CYAN}👤 User:{Colors.END} {Colors.BOLD}{user}{Colors.END}\n"
+        result_line += f"   {Colors.CYAN}🌐 Domain:{Colors.END} {Colors.BOLD}{domain}{Colors.END}\n"
+        result_line += f"   {Colors.CYAN}📁 Path:{Colors.END} {Colors.BOLD}{doc_root}{Colors.END}\n"
+        result_line += f"   {Colors.CYAN}🔍 Matches:{Colors.END} {', '.join(unique_matches)}"
+        
+        if len(matches_found) > 3:
+            result_line += f" {Colors.WHITE}(+{len(matches_found)-3} more){Colors.END}"
+            
+        result_line += f"\n{Colors.WHITE}{'═' * 80}{Colors.END}"
+        
         return result_line
     else:
         return None
@@ -229,7 +267,11 @@ def check_domain(domain_info, keywords):
 def main():
     global logger
     logger = setup_logging()
-    logger.info("="*50)
+    
+    print(f"{Colors.MAGENTA}{'╔' + '═' * 78 + '╗'}{Colors.END}")
+    print(f"{Colors.MAGENTA}║{Colors.BOLD}{Colors.CYAN}                  🎯 BETTING SITE SCANNER STARTED                  {Colors.MAGENTA}║{Colors.END}")
+    print(f"{Colors.MAGENTA}{'╚' + '═' * 78 + '╝'}{Colors.END}")
+    
     logger.info("Starting Betting Site Scanner")
 
     keywords = get_keywords()
@@ -246,8 +288,10 @@ def main():
             print(domain_result)
 
     if results:
-        logger.info("Scan completed. Matches found:\n" + "\n".join(results))
+        print(f"\n{Colors.GREEN}✅ Scan completed. Found {len(results)} matching domains.{Colors.END}")
+        logger.info(f"Scan completed. Found {len(results)} matches.")
     else:
+        print(f"\n{Colors.YELLOW}✅ Scan completed. No betting sites found.{Colors.END}")
         logger.info("Scan completed. No matches found.")
 
 if __name__ == "__main__":
