@@ -32,18 +32,19 @@ fi
 echo "Cloning repository into $TARGET_DIR..."
 git clone "$REPO_URL" "$TARGET_DIR" || { echo "Git clone failed. Please check the repository URL."; exit 1; }
 
-# Make main Python script executable
+# Make all scripts executable
 chmod +x "$TARGET_DIR/src/betting_scanner.py"
+chmod +x "$TARGET_DIR/bin/"*.sh
 
 # Install the binary symlinks
 echo "Installing system commands..."
 ln -sf "$TARGET_DIR/bin/sites.betting.sh" "$BIN_DIR/sites"
 ln -sf "$TARGET_DIR/bin/update.betting.sh" "$BIN_DIR/update-betting"
-
-chmod +x "$TARGET_DIR/bin/"*.sh
+ln -sf "$TARGET_DIR/bin/fix_scanner.sh" "$BIN_DIR/fix-betting"
 
 echo "Installation complete!"
 echo ""
 echo "Usage:"
 echo "  Scan your server:      sites"
 echo "  Update tool & keywords: update-betting"
+echo "  Fix any issues:        fix-betting"
