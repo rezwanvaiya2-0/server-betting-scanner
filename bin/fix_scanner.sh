@@ -1,30 +1,29 @@
+# Create a BETTER fix script that actually works
+cat > /opt/betting_scanner/bin/fix_scanner.sh << 'EOF'
 #!/bin/bash
-# One-time fix command to repair scanner installation
+# PROPER fix command that actually works
 
-echo "🔧 Running Betting Scanner Fix..."
+echo "🔧 Running PROPER Betting Scanner Fix..."
 echo ""
 
-# Fix permissions for all scripts
-echo "📝 Setting executable permissions..."
-chmod +x /opt/betting_scanner/bin/*.sh
-chmod +x /opt/betting_scanner/src/betting_scanner.py
-
-# Repair symlinks
-echo "🔗 Repairing symlinks..."
+# Remove ALL broken symlinks
 rm -f /usr/local/bin/sites /usr/local/bin/update-betting /usr/local/bin/fix-betting
+
+# Create NEW symlinks
 ln -sf /opt/betting_scanner/bin/sites.betting.sh /usr/local/bin/sites
 ln -sf /opt/betting_scanner/bin/update.betting.sh /usr/local/bin/update-betting
 ln -sf /opt/betting_scanner/bin/fix_scanner.sh /usr/local/bin/fix-betting
 
-# Ensure symlinks have execute permission
-chmod +x /usr/local/bin/sites /usr/local/bin/update-betting /usr/local/bin/fix-betting
+# Make ORIGINAL scripts executable (this is what matters)
+chmod +x /opt/betting_scanner/bin/*.sh
+chmod +x /opt/betting_scanner/src/betting_scanner.py
 
-# Reset any Git issues
-echo "🔄 Resetting Git repository..."
-cd /opt/betting_scanner
-git fetch --all
-git reset --hard origin/main
+echo "✅ PROPER Fix completed!"
+echo "💡 Now try: sites"
+EOF
 
-echo ""
-echo "✅ Fix completed!"
-echo "💡 Now run: sites"
+# Make the new fix script executable
+chmod +x /opt/betting_scanner/bin/fix_scanner.sh
+
+# Run the PROPER fix
+/opt/betting_scanner/bin/fix_scanner.sh
