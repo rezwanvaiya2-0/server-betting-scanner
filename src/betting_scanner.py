@@ -40,40 +40,111 @@ def get_keywords():
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#'):  # Skip empty lines and comments
-                    keywords.append(line.lower())
+                    keywords.append(line)
     except FileNotFoundError:
         logger.error(f"Keywords file not found at {KEYWORDS_FILE}. Please create it.")
         sys.exit(1)
     return keywords
 
 def get_cpanel_domains():
-    """Fetches a list of all domains on the server by parsing /var/cpanel/users/ files."""
+    """Fetches a list of ALL domains on the server by parsing /etc/localdomains and maps them to users."""
     domains = []
-    user_files_dir = Path('/var/cpanel/users/')
+    localdomains_file = Path('/etc/localdomains')
     
-    if not user_files_dir.exists():
-        logger.error("cPanel user directory not found: /var/cpanel/users/")
+    if not localdomains_file.exists():
+        logger.error("Domains file not found: /etc/localdomains")
         return domains
 
     try:
-        # Get list of all cPanel usernames
+        # Read all domains from /etc/localdomains (includes main, addon, and subdomains)
+        with open(localdomains_file, 'r') as f:
+            for line in f:
+                domain = line.strip()
+                if domain and not domain.startswith('#'):  # Skip empty lines and comments
+                    # Find which user owns this domain and their document root
+                    user_info = find_user_and_docroot_for_domain(domain)
+                    if user_info:
+                        domains.append({
+                            'user': user_info['user'], 
+                            'domain': domain, 
+                            'document_root': user_info['document_root']
+                        })
+                    else:
+                        logger.debug(f"Could not find user for domain: {domain}")
+        
+        logger.info(f"Found {len(domains)} domains to scan from /etc/localdomains")
+        return domains
+        
+    except Exception as e:
+        logger.error(f"Failed to get domain list from /etc/localdomains: {e}")
+        return []
+
+def find_user_and_docroot_for_domain(domain):
+    """Finds the cPanel user and document root for any domain (main, addon, or subdomain)."""
+    try:
+        # Method 1: Check main domains first (fastest)
+        user_files_dir = Path('/var/cpanel/users/')
         for user_file in user_files_dir.iterdir():
             if user_file.is_file():
                 username = user_file.name
-                # For each user, read their main domain from the file
                 with open(user_file, 'r') as f:
                     for line in f:
                         if line.startswith('DNS='):
                             main_domain = line.strip().split('=')[1]
-                            # Also get the user's homedir to build the document root
-                            user_home = f"/home/{username}"
-                            document_root = f"{user_home}/public_html"
-                            domains.append({'user': username, 'domain': main_domain, 'document_root': document_root})
-                            break # Stop reading after finding the DNS line
-        return domains
+                            if domain == main_domain:
+                                return {
+                                    'user': username,
+                                    'document_root': f"/home/{username}/public_html"
+                                }
+        
+        # Method 2: Check addon domains via userdata
+        home_dir = Path('/home')
+        for user_dir in home_dir.iterdir():
+            if user_dir.is_dir():
+                username = user_dir.name
+                # Check addon domains
+                addon_dir = user_dir / '.addondomain'
+                if addon_dir.exists():
+                    for addon_file in addon_dir.iterdir():
+                        if addon_file.name == domain:
+                            try:
+                                with open(addon_file, 'r') as f:
+                                    doc_root = f.read().strip()
+                                    return {'user': username, 'document_root': doc_root}
+                            except:
+                                return {'user': username, 'document_root': f"/home/{username}/public_html/{domain}"}
+                
+                # Check subdomains
+                subdomain_dir = user_dir / '.subdomain'
+                if subdomain_dir.exists():
+                    for subdomain_file in subdomain_dir.iterdir():
+                        if subdomain_file.name == domain:
+                            try:
+                                with open(subdomain_file, 'r') as f:
+                                    doc_root = f.read().strip()
+                                    return {'user': username, 'document_root': doc_root}
+                            except:
+                                subdomain_part = domain.split('.')[0]
+                                return {'user': username, 'document_root': f"/home/{username}/public_html/{subdomain_part}"}
+        
+        # Method 3: Fallback - check domain directory existence
+        for user_dir in home_dir.iterdir():
+            if user_dir.is_dir():
+                username = user_dir.name
+                # Check main domain
+                if (user_dir / 'public_html').exists():
+                    return {'user': username, 'document_root': f"/home/{username}/public_html"}
+                
+                # Check addon domain path
+                domain_path = user_dir / 'public_html' / domain
+                if domain_path.exists():
+                    return {'user': username, 'document_root': str(domain_path)}
+        
+        return None
+        
     except Exception as e:
-        logger.error(f"Failed to get domain list from /var/cpanel/users/: {e}")
-        return []
+        logger.debug(f"Error finding user for domain {domain}: {e}")
+        return None
 
 def check_domain(domain_info, keywords):
     """Checks a single domain for matches against the keyword list."""
@@ -82,16 +153,36 @@ def check_domain(domain_info, keywords):
     doc_root = domain_info['document_root']
     matches_found = []
 
-    # Check 1: Check the DOMAIN NAME itself for keyword matches
+    # Check 1: SMART DOMAIN NAME matching (partial matches, 3+ letters)
+    domain_lower = domain.lower()
     for kw in keywords:
-        if re.search(rf'\b{re.escape(kw)}\b', domain, re.IGNORECASE):
-            matches_found.append(f"DOMAIN_NAME: '{kw}'")
+        kw_lower = kw.lower()
+        # Skip very short keywords (less than 3 characters)
+        if len(kw_lower) < 3:
+            continue
+            
+        # Check for exact match
+        if re.search(rf'\b{re.escape(kw_lower)}\b', domain_lower):
+            matches_found.append(f"DOMAIN_NAME_EXACT: '{kw}'")
+            continue
+            
+        # Check for partial match (keyword appears anywhere in domain)
+        if kw_lower in domain_lower:
+            matches_found.append(f"DOMAIN_NAME_PARTIAL: '{kw}'")
+            continue
+            
+        # Advanced: Check for similar patterns (3+ character sequences)
+        for i in range(len(kw_lower) - 2):
+            segment = kw_lower[i:i+3]
+            if segment in domain_lower:
+                matches_found.append(f"DOMAIN_NAME_SIMILAR: '{segment}' from '{kw}'")
+                break
 
     # Check 2: Check the WEBSITE CONTENT
     url = f"http://{domain}"
     try:
         response = requests.get(url, timeout=15, headers={'User-Agent': 'Mozilla/5.0 (Server Admin Scanner)'})
-        response.raise_for_status()  # Raises an exception for bad status codes (4xx, 5xx)
+        response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -106,16 +197,25 @@ def check_domain(domain_info, keywords):
 
         # Check page title and content for keywords
         for kw in keywords:
-            if re.search(rf'\b{re.escape(kw)}\b', title_text):
+            kw_lower = kw.lower()
+            if len(kw_lower) < 3:
+                continue
+                
+            # Exact match in title
+            if re.search(rf'\b{re.escape(kw_lower)}\b', title_text):
                 matches_found.append(f"PAGE_TITLE: '{kw}'")
-            # Count occurrences in body text as a simple measure of density
-            count = len(re.findall(rf'\b{re.escape(kw)}\b', page_text))
-            if count > 3:  # Arbitrary threshold to avoid minor mentions
+                
+            # Partial match in title
+            elif kw_lower in title_text:
+                matches_found.append(f"PAGE_TITLE_PARTIAL: '{kw}'")
+            
+            # Count occurrences in body text
+            count = page_text.count(kw_lower)
+            if count > 2:
                 matches_found.append(f"BODY_TEXT ({count}x): '{kw}'")
 
     except requests.exceptions.RequestException as e:
         logger.debug(f"Could not fetch {url}: {e}")
-        # Don't fail the whole script if one site is down
         pass
 
     # If we found any matches, return the results
@@ -143,10 +243,8 @@ def main():
         domain_result = check_domain(domain_info, keywords)
         if domain_result:
             results.append(domain_result)
-            # Print matches to console immediately
             print(domain_result)
 
-    # Also log all results together
     if results:
         logger.info("Scan completed. Matches found:\n" + "\n".join(results))
     else:
