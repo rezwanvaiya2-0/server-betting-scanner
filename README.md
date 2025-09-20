@@ -2,6 +2,63 @@
 
 A tool for server administrators to scan cPanel/WHM accounts for domains hosting gambling-related content.
 
+### 🛠️ **Dependencies Needed to Run the Script:**
+
+#### 1. **System Packages:**
+```bash
+# Essential system tools
+git         # To clone/update from GitHub
+python3     # Python 3 interpreter
+python3-pip # Python package manager
+```
+
+#### 2. **Python Libraries:**
+```bash
+# Required Python packages
+requests        # For HTTP requests to check websites
+beautifulsoup4  # For HTML parsing of website content
+```
+
+#### 3. **Server Requirements:**
+```bash
+# Server environment
+cPanel/WHM server  # The script uses WHM-specific commands
+Root access        # Required to access all user domains
+```
+
+---
+
+### 🔧 **Installation Command for Dependencies:**
+
+The installer script **automatically installs** all dependencies, but here's the manual command:
+
+#### For CentOS/CloudLinux/RHEL:
+```bash
+yum install -y git python3
+pip3 install requests beautifulsoup4
+```
+
+#### For Ubuntu/Debian:
+```bash
+apt-get update
+apt-get install -y git python3 python3-pip
+pip3 install requests beautifulsoup4
+```
+
+---
+
+### 📊 **What Each Dependency Does:**
+
+| Dependency | Purpose |
+|------------|---------|
+| **git** | Clones and updates from GitHub repository |
+| **python3** | Runs the main scanner script |
+| **requests** | Fetches website content for analysis |
+| **beautifulsoup4** | Parses HTML to find gambling keywords |
+
+The **installer script handles everything automatically** - you don't need to manually install dependencies! 🎉
+
+
 ## Installation
 
 Run this command on your server as root:
