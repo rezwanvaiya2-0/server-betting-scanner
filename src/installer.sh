@@ -42,9 +42,14 @@ ln -sf "$TARGET_DIR/bin/sites.betting.sh" "$BIN_DIR/sites"
 ln -sf "$TARGET_DIR/bin/update.betting.sh" "$BIN_DIR/update-betting"
 ln -sf "$TARGET_DIR/bin/fix_scanner.sh" "$BIN_DIR/fix-betting"
 
+# Ensure symlinks have execute permission
+chmod +x /usr/local/bin/sites /usr/local/bin/update-betting /usr/local/bin/fix-betting
+
 echo "Installation complete!"
 echo ""
 echo "Usage:"
 echo "  Scan your server:      sites"
 echo "  Update tool & keywords: update-betting"
 echo "  Fix any issues:        fix-betting"
+echo ""
+echo "💡 First run: fix-betting (to ensure everything is properly set up)"
