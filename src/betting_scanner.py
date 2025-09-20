@@ -47,19 +47,32 @@ def get_keywords():
     return keywords
 
 def get_cpanel_domains():
-    """Fetches a list of all domains on the server using WHM's wwwacct command."""
-    try:
-        result = subprocess.run(['/scripts/wwwacct', '--list'], capture_output=True, text=True, check=True)
-        domains = []
-        for line in result.stdout.splitlines():
-            parts = line.split()
-            # The wwwacct output format is: username domain IP package
-            if len(parts) >= 4 and parts[1] != 'NULL':
-                user, domain = parts[0], parts[1]
-                domains.append({'user': user, 'domain': domain, 'document_root': f"/home/{user}/public_html"})
+    """Fetches a list of all domains on the server by parsing /var/cpanel/users/ files."""
+    domains = []
+    user_files_dir = Path('/var/cpanel/users/')
+    
+    if not user_files_dir.exists():
+        logger.error("cPanel user directory not found: /var/cpanel/users/")
         return domains
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to get domain list from WHM: {e}")
+
+    try:
+        # Get list of all cPanel usernames
+        for user_file in user_files_dir.iterdir():
+            if user_file.is_file():
+                username = user_file.name
+                # For each user, read their main domain from the file
+                with open(user_file, 'r') as f:
+                    for line in f:
+                        if line.startswith('DNS='):
+                            main_domain = line.strip().split('=')[1]
+                            # Also get the user's homedir to build the document root
+                            user_home = f"/home/{username}"
+                            document_root = f"{user_home}/public_html"
+                            domains.append({'user': username, 'domain': main_domain, 'document_root': document_root})
+                            break # Stop reading after finding the DNS line
+        return domains
+    except Exception as e:
+        logger.error(f"Failed to get domain list from /var/cpanel/users/: {e}")
         return []
 
 def check_domain(domain_info, keywords):
